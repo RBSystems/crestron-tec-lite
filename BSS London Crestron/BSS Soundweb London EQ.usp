@@ -1,0 +1,986 @@
+/*******************************************************************************************
+  SIMPL+ Module Information
+  (Fill in comments below)
+*******************************************************************************************/
+/*
+Dealer Name:
+System Name:
+System Number:
+Programmer:
+Comments:
+*/
+
+/*******************************************************************************************
+  Compiler Directives
+  (Uncomment and declare compiler directives as needed)
+*******************************************************************************************/
+// #SYMBOL_NAME ""
+// #HINT ""             
+// #DEFINE_CONSTANT
+// #CATEGORY "" 
+// #DEFAULT_VOLATILE
+#DEFAULT_NONVOLATILE  
+#HELP_PDF_FILE "bss soundweb london EQ v4.2 help.pdf"
+#ENABLE_STACK_CHECKING
+
+#HELP_BEGIN
+version 4.2 
+see help file bss soundweb london EQ v4.2 help.pdf
+#HELP_END
+
+
+/*******************************************************************************************
+  Include Libraries
+  (Uncomment and include additional librarys as needed)
+*******************************************************************************************/
+// #CRESTRON_LIBRARY ""
+// #USER_LIBRARY ""
+
+/*******************************************************************************************
+  DIGITAL, ANALOG and SERIAL INPUTS and OUTPUTS
+  (Uncomment and declare inputs and outputs as needed)
+*******************************************************************************************/
+DIGITAL_INPUT _skip_,subscribe$, unSubscribe$;
+DIGITAL_INPUT _skip_, bypass_On$; 
+DIGITAL_INPUT bypass_Off$;
+
+ANALOG_INPUT _skip_, input$;
+ANALOG_INPUT _skip_, boostPercent$;
+ANALOG_INPUT _skip_, width$;
+ANALOG_INPUT _skip_, frequency$;
+ANALOG_INPUT _skip_, type$;
+ANALOG_INPUT _skip_, slope$; 
+
+
+
+BUFFER_INPUT _skip_,rx$[400];
+// BUFFER_INPUT                 
+
+DIGITAL_OUTPUT _skip_,_skip_,_skip_,_skip_,bypass_fb$; 
+ANALOG_OUTPUT _skip_, _skip_,_skip_,_skip_, boostPercent_fb$;
+ANALOG_OUTPUT _skip_, width_fb$;
+ANALOG_OUTPUT _skip_, frequency_fb$;
+ANALOG_OUTPUT _skip_, type_fb$;
+ANALOG_OUTPUT _skip_, slope_fb$;
+
+STRING_OUTPUT _skip_, tx$;
+STRING_OUTPUT _skip_,boostString_fb$;
+STRING_OUTPUT widthString_fb$;
+STRING_OUTPUT frequencyString_fb$;
+STRING_OUTPUT typeString_fb$;
+STRING_OUTPUT slopeString_fb$;
+
+
+
+/*******************************************************************************************
+  Parameters
+  (Uncomment and declare parameters as needed)
+*******************************************************************************************/
+STRING_PARAMETER objectID$[3];
+// SIGNED_INTEGER_PARAMETER
+// LONG_INTEGER_PARAMETER
+// SIGNED_LONG_INTEGER_PARAMETER
+//STRING_PARAMETER 
+
+/*******************************************************************************************
+  Parameter Properties
+  (Uncomment and declare parameter properties as needed)
+*******************************************************************************************/
+
+#BEGIN_PARAMETER_PROPERTIES objectID$
+   propValidUnits = unitString;
+   propDefaultUnit = unitString;
+   propDefaultValue = "\x00\x00\x00"; 
+   //propList = {"A","A"},{"B","B"},{"C","C"},{"D","D"};  
+   #BEGIN_PROP_FULL_DESCRIPTION  
+    "See Help File"
+   #END_PROP_FULL_DESCRIPTION
+   // #BEGIN_PROP_NOTES line_1...  line_2...  line_n  #END_PROP_NOTES
+#END_PARAMETER_PROPERTIES
+/*******************************************************************************************
+  Structure Definitions
+  (Uncomment and define structure definitions as needed)
+  Note:  Be sure to initialize all declared STRING variables as needed
+         For example, in Function Main: struct.myString = "";
+*******************************************************************************************/
+// STRUCTURE MyStruct1
+// {
+// };
+
+// MyStruct1 struct;
+
+/*******************************************************************************************
+  Global Variables
+  (Uncomment and declare global variables as needed)
+  Note:  Be sure to initialize all declared STRING variables as needed
+         For example, in Function Main: myString = "";
+*******************************************************************************************/
+INTEGER i,volume,roundPart,value,volumeInput,input;
+STRING returnString[4];
+INTEGER returnI;
+
+INTEGER xOK, xOKSubscribe,xOKBoost,subscribe,iCase;
+STRING tempString[40];  
+
+INTEGER stateVarBoost, stateVarFrequency, stateVarSub, stateVarReceive, x;
+INTEGER stateVarWidth, stateVarSlope, stateVarType, stateVarBypass; 
+
+String notch[2];
+String negative[2]; 
+
+STRING boostString[101][20];
+ 
+INTEGER width[101];
+STRING WidthString[101][20];
+
+INTEGER frequency[101];
+STRING frequencyString[101][20];
+
+/*******************************************************************************************
+  Functions
+  (Add any additional functions here)
+  Note:  Functions must be physically placed before the location in
+         the code that calls them.
+*******************************************************************************************/
+/*
+Function MyFunction1()
+{
+    // TODO:  Add local variable declarations here
+
+    // TODO:  Add code here
+}
+*/
+
+/*
+Integer_Function MyIntFunction1()
+{
+    // TODO:  Add local variable declarations here
+
+    // TODO:  Add code here
+
+    Return (0);
+}
+*/
+
+String_Function iToVolumePercent(INTEGER int)
+{                 
+	// number from 0 - 65535  
+	volume = (int*100)/65535;                            
+	returnString = "\x00" + chr(volume) + "\x00\x00";
+    Return (returnString);
+}
+
+
+Integer_Function volumePercentToI(STRING str)
+{   
+	INTEGER fraction;                      
+	fraction = byte(str,3)*256+byte(str,4);
+	if(fraction > 32767){
+		volume = ((byte(str, 2)+1)*65535)/100;                  
+	}
+	else{
+		volume = (byte(str, 2)*65535)/100;
+	}
+	returnI = volume;
+
+    Return (returnI);
+}
+Integer_Function volumePercentRound(String str){
+ 	roundPart = byte(str,3)*256+byte(str,4);
+ 	if(roundPart > 32767){ //round up
+ 		returnI = byte(str,2)+1;
+ 	}
+ 	else{
+ 	    returnI = byte(str,2);
+ 	}
+ 	return (returnI);
+}
+
+
+
+/*******************************************************************************************
+  Event Handlers
+  (Uncomment and declare additional event handlers as needed)
+*******************************************************************************************/
+CHANGE boostPercent${                                                                         
+	//may need to do the percent thing 
+	stateVarBoost = 2+16*(input-1);
+	if(xOKBoost && boostPercent_fb$ <> boostPercent$ && boostPercent$ >= 0 && boostPercent$ < 101)
+	{   
+		xOKBoost = 0;
+		makeString(tx$, "\x8D\x00\x00\x03%s%s%s\x00%s\x00\x00\x03\x03\x03\x03\x03", objectID$, chr(high(stateVarBoost)), chr(low(stateVarBoost)),chr(boostPercent$));
+		boostPercent_fb$ = boostPercent$;
+		boostString_fb$ = boostString[boostPercent$+1];
+		xOKBoost = 1;
+	}
+}
+CHANGE width${
+	stateVarWidth = 3+16*(input-1); 
+	if(width_fb$ <> width$ && width$ >= 0 && width$ < 101){
+		makeString(tx$, "\x8D\x00\x00\x03%s%s%s\x00%s\x00\x00\x03\x03\x03\x03\x03", objectID$, chr(high(stateVarWidth)), chr(low(stateVarWidth)),chr(width$));
+		width_fb$ = width$;
+		widthString_fb$ = widthString[width$+1];
+	}
+}
+CHANGE frequency${ 
+	stateVarFrequency = 1+16*(input-1);
+	if(frequency_fb$ <> frequency$ && frequency$ >= 0 && frequency$ < 101){
+		makeString(tx$, "\x8D\x00\x00\x03%s%s%s\x00%s\x00\x00\x03\x03\x03\x03\x03", objectID$, chr(high(stateVarFrequency)), chr(low(stateVarFrequency)),chr(frequency$));
+		frequency_fb$ = frequency$; 
+		frequencyString_fb$ = frequencyString[frequency$+1];
+	}	
+}
+CHANGE type${ 
+// need to change type  
+	stateVarType = 4+16*(input-1);   
+	if(type$ >= 0 && type$ < 3){
+		makeString(tx$, "\x88\x00\x00\x03%s%s%s\x00\x00\x00%s\x03\x03\x03\x03\x03", objectID$, chr(high(stateVarType)), chr(low(stateVarType)),chr(type$));
+		//type_fb$ = type$;    
+		if(subscribe)
+		{
+	   		makeString(tx$, "\x89\x00\x00\x03%s%s%s\x00\x00\x00\x00\x03\x03\x03\x03\x03", objectID$, chr(high(stateVarType)), chr(low(stateVarType)));  //Subscribe type
+			processlogic();
+		}
+	}	
+}
+CHANGE slope${        
+//need to change type  
+	stateVarSlope = 6+16*(input-1);
+	if(slope$ >= 0 && slope$ < 4){
+		makeString(tx$, "\x88\x00\x00\x03%s%s%s\x00\x00\x00%s\x03\x03\x03\x03\x03", objectID$, chr(high(stateVarSlope)), chr(low(stateVarSlope)),chr(slope$));
+		//slope_fb$ = slope$;
+		if(subscribe)
+		{
+	   		makeString(tx$, "\x89\x00\x00\x03%s%s%s\x00\x00\x00\x00\x03\x03\x03\x03\x03", objectID$, chr(high(stateVarSlope)), chr(low(stateVarSlope)));  //Subscribe slope
+			processlogic();
+		}
+	}
+} 
+PUSH bypass_On${   
+	stateVarBypass = 16*(input-1);
+	makeString(tx$, "\x88\x00\x00\x03%s%s%s\x00\x00\x00\x01\x03\x03\x03\x03\x03", objectID$, chr(high(stateVarBypass)), chr(low(stateVarBypass)));
+
+	if(subscribe)
+	{
+   		makeString(tx$, "\x89\x00\x00\x03%s%s%s\x00\x00\x00\x00\x03\x03\x03\x03\x03", objectID$, chr(high(stateVarBypass)), chr(low(stateVarBypass)));  //Subscribe bypass
+		processlogic();
+	}
+} 
+PUSH bypass_Off${    
+	stateVarBypass = 16*(input-1);
+	makeString(tx$, "\x88\x00\x00\x03%s%s%s\x00\x00\x00\x00\x03\x03\x03\x03\x03", objectID$, chr(high(stateVarBypass)), chr(low(stateVarBypass)));
+
+	if(subscribe)
+	{
+   		makeString(tx$, "\x89\x00\x00\x03%s%s%s\x00\x00\x00\x00\x03\x03\x03\x03\x03", objectID$, chr(high(stateVarBypass)), chr(low(stateVarBypass)));  //Subscribe bypass
+		processlogic();
+	}
+}
+  
+PUSH subscribe$
+{    
+	//subscribe to all sv's        
+	wait(20)
+	{      
+		if(xOKSubscribe)
+		{
+			xOKSubscribe = 0; 
+			stateVarSub = 1+16*(input-1);
+			makeString(tx$, "\x8E\x00\x00\x03%s%s%s\x00\x00\x00\x00\x03\x03\x03\x03\x03", objectID$, chr(high(stateVarSub)), chr(low(stateVarSub)));  //frequency
+			processlogic();   
+			stateVarSub = 2+16*(input-1);
+			makeString(tx$, "\x8E\x00\x00\x03%s%s%s\x00\x00\x00\x00\x03\x03\x03\x03\x03", objectID$, chr(high(stateVarSub)), chr(low(stateVarSub)));  //Boost
+			processlogic();   
+			stateVarSub = 3+16*(input-1);
+			makeString(tx$, "\x8E\x00\x00\x03%s%s%s\x00\x00\x00\x00\x03\x03\x03\x03\x03", objectID$, chr(high(stateVarSub)), chr(low(stateVarSub)));  //Width
+			processlogic();   
+			stateVarSub = 4+16*(input-1);
+			makeString(tx$, "\x89\x00\x00\x03%s%s%s\x00\x00\x00\x00\x03\x03\x03\x03\x03", objectID$, chr(high(stateVarSub)), chr(low(stateVarSub)));  //Type
+			processlogic();   
+			stateVarSub = 6+16*(input-1);
+			makeString(tx$, "\x89\x00\x00\x03%s%s%s\x00\x00\x00\x00\x03\x03\x03\x03\x03", objectID$, chr(high(stateVarSub)), chr(low(stateVarSub)));  //slope
+			processlogic();   
+			stateVarSub = 16*(input-1);
+			makeString(tx$, "\x89\x00\x00\x03%s%s%s\x00\x00\x00\x00\x03\x03\x03\x03\x03", objectID$, chr(high(stateVarSub)), chr(low(stateVarSub)));  //bypass
+			processlogic();
+			xOKSubscribe = 1;
+			subscribe = 1;
+		}
+	} 
+      
+}  
+
+
+PUSH unSubscribe$
+{       
+	//unsubscribe to all sv's    
+	
+	if(xOKSubscribe)
+	{
+		xOKSubscribe = 0;
+		stateVarSub = 1+16*(input-1);
+		makeString(tx$, "\x8F\x00\x00\x03%s%s%s\x00\x00\x00\x00\x03\x03\x03\x03\x03", objectID$, chr(high(stateVarSub)), chr(low(stateVarSub)));  //frequency
+		processlogic();       
+		stateVarSub = 2+16*(input-1);
+		makeString(tx$, "\x8F\x00\x00\x03%s%s%s\x00\x00\x00\x00\x03\x03\x03\x03\x03", objectID$, chr(high(stateVarSub)), chr(low(stateVarSub)));  //Boost
+		processlogic();   
+		stateVarSub = 3+16*(input-1);
+		makeString(tx$, "\x8F\x00\x00\x03%s%s%s\x00\x00\x00\x00\x03\x03\x03\x03\x03", objectID$, chr(high(stateVarSub)), chr(low(stateVarSub)));  //Width
+		processlogic();   
+		stateVarSub = 4+16*(input-1);
+		makeString(tx$, "\x8A\x00\x00\x03%s%s%s\x00\x00\x00\x00\x03\x03\x03\x03\x03", objectID$, chr(high(stateVarSub)), chr(low(stateVarSub)));  //Type
+		processlogic();   
+		stateVarSub = 6+16*(input-1);
+		makeString(tx$, "\x8A\x00\x00\x03%s%s%s\x00\x00\x00\x00\x03\x03\x03\x03\x03", objectID$, chr(high(stateVarSub)), chr(low(stateVarSub)));  //slope
+		processlogic();   
+		stateVarSub = 16*(input-1);
+		makeString(tx$, "\x8A\x00\x00\x03%s%s%s\x00\x00\x00\x00\x03\x03\x03\x03\x03", objectID$, chr(high(stateVarSub)), chr(low(stateVarSub)));  //bypass
+		processlogic();  
+		xOKSubscribe = 1;
+		subscribe = 0;
+	}  
+}  
+  
+  
+change input$
+{
+ 	if(input$ > 0)
+ 		input = input$;
+ 	else       
+ 	{
+ 		input = 1;
+ 		print ("\nerror input for the EQ cannot be 0. set to default of 1");
+ 	}
+}
+
+/*
+RELEASE input
+{
+    // TODO:  Add code here
+}
+*/
+
+
+CHANGE rx$
+{
+	if (xOK)
+	{	
+		xOK = 0; 
+		while (len(rx$))
+		{  
+			if(find("\x03\x03\x03\x03\x03", rx$))
+			{ 
+				tempString = remove("\x03\x03\x03\x03\x03", rx$);  
+				if ((mid(tempString, 6, 3) = "\x00\x00\x00") || (mid(tempString, 6, 3) = objectID$))
+				{                 
+			        iCase = ((byte(tempString, 9) * 256 ) + byte(tempString, 10)); //SV		   
+					switch(iCase)
+					{    
+						case (16*(input-1)): //bypass
+						{  
+							bypass_fb$ = byte(tempString, 14);
+						}
+						case (1+(16*(input-1))): //frequency
+						{
+							volumeInput = volumePercentRound(mid(tempString, 11,4));    
+							
+							frequency_fb$ = volumeInput;//frequency[volumeInput+1];
+							frequencyString_fb$ = frequencyString[volumeInput+1];
+						}
+						case (2+(16*(input-1))): // Boost
+						{
+							volumeInput = volumePercentRound(mid(tempString, 11,4));
+							boostPercent_fb$ = volumeInput;
+							boostString_fb$ = frequencyString[volumeInput+1];
+						} 
+						case (3+(16*(input-1))): // width
+						{
+							volumeInput = volumePercentRound(mid(tempString, 11,4));
+							width_fb$ = volumeInput;//width[width$+1];
+							widthString_fb$ = widthString[volumeInput+1];
+						}
+						case (4+(16*(input-1))): // type
+						{
+							value = byte(tempString, 14);
+							type_fb$ = value;    
+							switch(value){
+								case(0):{
+									typeString_fb$ = "Bell";
+								}
+								case(1):{
+								    typeString_fb$ = "Low Shelf";
+								}
+								case(2):{
+								    typeString_fb$ = "High Shelf";
+								}   
+							}
+							break;
+
+						}
+						case (6+(16*(input-1))): //slope
+						{
+							value = byte(tempString, 14);
+							slope_fb$ = value;  
+							switch(value){
+								case(0):{
+									slopeString_fb$ = "6dB/Oct";
+								}
+								case(1):{
+								    slopeString_fb$ = "9dB/Oct";
+								}
+								case(2):{
+								    slopeString_fb$ = "12dB/Oct";
+								}   
+								case(3):{
+								    slopeString_fb$ = "15dB/Oct";
+								}
+							}
+						}   
+						default: print("\ndefault %u", len(tempString));
+					}
+				}
+				clearbuffer(tempString);
+			}
+		}
+		xOK = 1;
+	}	
+}
+
+
+/*
+EVENT
+{
+    // TODO:  Add code here
+}
+*/
+
+/*******************************************************************************************
+  Main()
+  Uncomment and place one-time startup code here
+  (This code will get called when the system starts up)
+*******************************************************************************************/
+
+Function Main()
+{
+	xOK = 1; 
+	xOKSubscribe = 1;
+	subscribe = 0;
+	xOKBoost = 1;
+	input = 1;
+	
+	//set up the arrays to be used for this module 
+	//boost 	
+	boostString[1] = "Notch";
+	boostString[2] = "-14.7 dB";
+	boostString[3] = "-14.4 dB";
+	boostString[4] = "-14.1 dB";
+	boostString[5] = "-13.8 dB";
+	boostString[6] = "-13.5 dB";
+	boostString[7] = "-13.2 dB";
+	boostString[8] = "-12.9 dB";
+	boostString[9] = "-12.6 dB";
+	boostString[10] = "-12.3 dB";
+	boostString[11] = "-12.0 dB";
+	boostString[12] = "-11.7 dB";
+	boostString[13] = "-11.4 dB";
+	boostString[14] = "-11.1 dB";
+	boostString[15] = "-10.8 dB";
+	boostString[16] = "-10.5 dB";
+	boostString[17] = "-10.2 dB";
+	boostString[18] = "-9.9 dB";
+	boostString[19] = "-9.6 dB";
+	boostString[20] = "-9.3 dB";
+	boostString[21] = "-9.0 dB";
+	boostString[22] = "-8.7 dB";
+	boostString[23] = "-8.4 dB";
+	boostString[24] = "-8.1 dB";
+	boostString[25] = "-7.8 dB";
+	boostString[26] = "-7.5 dB";
+	boostString[27] = "-7.2 dB";
+	boostString[28] = "-6.9 dB";
+	boostString[29] = "-6.6 dB";
+	boostString[30] = "-6.3 dB";
+	boostString[31] = "-6.0 dB";
+	boostString[32] = "-5.7 dB";
+	boostString[33] = "-5.4 dB";
+	boostString[34] = "-5.1 dB";
+	boostString[35] = "-4.8 dB";
+	boostString[36] = "-4.5 dB";
+	boostString[37] = "-4.2 dB";
+	boostString[38] = "-3.9 dB";
+	boostString[39] = "-3.6 dB";
+	boostString[40] = "-3.3 dB";
+	boostString[41] = "-3.0 dB";
+	boostString[42] = "-2.7 dB";
+	boostString[43] = "-2.4 dB";
+	boostString[44] = "-2.1 dB";
+	boostString[45] = "-1.8 dB";
+	boostString[46] = "-1.5 dB";
+	boostString[47] = "-1.2 dB";
+	boostString[48] = "-.9 dB";
+	boostString[49] = "-.6 dB";
+	boostString[50] = "-.3 dB";
+	boostString[51] = "0 dB";
+	boostString[52] = ".3 dB";
+	boostString[53] = ".6 dB";
+	boostString[54] = ".9 dB";
+	boostString[55] = "1.2 dB";
+	boostString[56] = "1.5 dB";
+	boostString[57] = "1.8 dB";
+	boostString[58] = "2.1 dB";
+	boostString[59] = "2.4 dB";
+	boostString[60] = "2.7 dB";
+	boostString[61] = "3.0 dB";
+	boostString[62] = "3.3 dB";
+	boostString[63] = "3.6 dB";
+	boostString[64] = "3.9 dB";
+	boostString[65] = "4.2 dB";
+	boostString[66] = "4.5 dB";
+	boostString[67] = "4.8 dB";
+	boostString[68] = "5.1 dB";
+	boostString[69] = "5.4 dB";
+	boostString[70] = "5.7 dB";
+	boostString[71] = "6.0 dB";
+	boostString[72] = "6.3 dB";
+	boostString[73] = "6.6 dB";
+	boostString[74] = "6.9 dB";
+	boostString[75] = "7.2 dB";
+	boostString[76] = "7.5 dB";
+	boostString[77] = "7.8 dB";
+	boostString[78] = "8.1 dB";
+	boostString[79] = "8.4 dB";
+	boostString[80] = "8.7 dB";
+	boostString[81] = "9.0 dB";
+	boostString[82] = "9.3 dB";
+	boostString[83] = "9.6 dB";
+	boostString[84] = "9.9 dB";
+	boostString[85] = "10.2 dB";
+	boostString[86] = "10.5 dB";
+	boostString[87] = "10.8 dB";
+	boostString[88] = "11.1 dB";
+	boostString[89] = "11.4 dB";
+	boostString[90] = "11.7 dB";
+	boostString[91] = "12.0 dB";
+	boostString[92] = "12.3 dB";
+	boostString[93] = "12.6 dB";
+	boostString[94] = "12.9 dB";
+	boostString[95] = "13.2 dB";
+	boostString[96] = "13.5 dB";
+	boostString[97] = "13.8 dB";
+	boostString[98] = "14.1 dB";
+	boostString[99] = "14.4 dB";
+	boostString[100] = "14.7 dB";
+	boostString[101] = "15.0 dB"; 
+	
+	//width
+	width[1] = 0;
+	width[2] = 328;
+	width[3] = 983;
+	width[4] = 1683;
+	width[5] = 2293;
+	width[6] = 2949;
+	width[7] = 3604;
+	width[8] = 4259;
+	width[9] = 4915;
+	width[10] = 5570;
+	width[11] = 6225;
+	width[12] = 6881;
+	width[13] = 7536;
+	width[14] = 8191;
+	width[15] = 8847;
+	width[16] = 9502;
+	width[17] = 10157;
+	width[18] = 10813;
+	width[19] = 11468;
+	width[20] = 12123;
+	width[21] = 12779;
+	width[22] = 13434;
+	width[23] = 14090;
+	width[24] = 14745;
+	width[25] = 15400;
+	width[26] = 16056;
+	width[27] = 16711;
+	width[28] = 17366;
+	width[29] = 18022;
+	width[30] = 18677;
+	width[31] = 19332;
+	width[32] = 19988;
+	width[33] = 20643;
+	width[34] = 21298;
+	width[35] = 21954;
+	width[36] = 22609;
+	width[37] = 23264;
+	width[38] = 23920;
+	width[39] = 24575;
+	width[40] = 25230;
+	width[41] = 25886;
+	width[42] = 26541;
+	width[43] = 27197;
+	width[44] = 27852;
+	width[45] = 28507;
+	width[46] = 29163;
+	width[47] = 29818;
+	width[48] = 30473;
+	width[49] = 31129;
+	width[50] = 31784;
+	width[51] = 32439;
+	width[52] = 33095;
+	width[53] = 33750;
+	width[54] = 34405;
+	width[55] = 35061;
+	width[56] = 35716;
+	width[57] = 36371;
+	width[58] = 37027;
+	width[59] = 37682;
+	width[60] = 38337;
+	width[61] = 38993;
+	width[62] = 39648;
+	width[63] = 40304;
+	width[64] = 40959;
+	width[65] = 41614;
+	width[66] = 42270;
+	width[67] = 42925;
+	width[68] = 43580;
+	width[69] = 44236;
+	width[70] = 44891;
+	width[71] = 45546;
+	width[72] = 46202;
+	width[73] = 46857;
+	width[74] = 47512;
+	width[75] = 48168;
+	width[76] = 48823;
+	width[77] = 49478;
+	width[78] = 50134;
+	width[79] = 50789;
+	width[80] = 51444;
+	width[81] = 52100;
+	width[82] = 52755;
+	width[83] = 53411;
+	width[84] = 54066;
+	width[85] = 54721;
+	width[86] = 55377;
+	width[87] = 56032;
+	width[88] = 56687;
+	width[89] = 57343;
+	width[90] = 57998;
+	width[91] = 58653;
+	width[92] = 59309;
+	width[93] = 59964;
+	width[94] = 60619;
+	width[95] = 61275;
+	width[96] = 61930;
+	width[97] = 62585;
+	width[98] = 63241;
+	width[99] = 63896;
+	width[100] = 64551;
+	width[101] = 65535;  
+	
+	widthString[1] = "0.01";
+	widthString[2] = "0.05";
+	widthString[3] = "0.09";
+	widthString[4] = "0.13";
+	widthString[5] = "0.17";
+	widthString[6] = "0.21";
+	widthString[7] = "0.25";
+	widthString[8] = "0.29";
+	widthString[9] = "0.33";
+	widthString[10] = "0.37";
+	widthString[11] = "0.41";
+	widthString[12] = "0.45";
+	widthString[13] = "0.49";
+	widthString[14] = "0.53";
+	widthString[15] = "0.57";
+	widthString[16] = "0.61";
+	widthString[17] = "0.65";
+	widthString[18] = "0.69";
+	widthString[19] = "0.73";
+	widthString[20] = "0.77";
+	widthString[21] = "0.81";
+	widthString[22] = "0.85";
+	widthString[23] = "0.89";
+	widthString[24] = "0.93";
+	widthString[25] = "0.97";
+	widthString[26] = "1.01";
+	widthString[27] = "1.05";
+	widthString[28] = "1.09";
+	widthString[29] = "1.13";
+	widthString[30] = "1.17";
+	widthString[31] = "1.21";
+	widthString[32] = "1.25";
+	widthString[33] = "1.29";
+	widthString[34] = "1.33";
+	widthString[35] = "1.37";
+	widthString[36] = "1.41";
+	widthString[37] = "1.45";
+	widthString[38] = "1.49";
+	widthString[39] = "1.53";
+	widthString[40] = "1.57";
+	widthString[41] = "1.61";
+	widthString[42] = "1.65";
+	widthString[43] = "1.69";
+	widthString[44] = "1.73";
+	widthString[45] = "1.77";
+	widthString[46] = "1.81";
+	widthString[47] = "1.85";
+	widthString[48] = "1.89";
+	widthString[49] = "1.93";
+	widthString[50] = "1.96";
+	widthString[51] = "2.00";
+	widthString[52] = "2.04";
+	widthString[53] = "2.08";
+	widthString[54] = "2.12";
+	widthString[55] = "2.16";
+	widthString[56] = "2.20";
+	widthString[57] = "2.24";
+	widthString[58] = "2.28";
+	widthString[59] = "2.32";
+	widthString[60] = "2.36";
+	widthString[61] = "2.40";
+	widthString[62] = "2.44";
+	widthString[63] = "2.48";
+	widthString[64] = "2.52";
+	widthString[65] = "2.56";
+	widthString[66] = "2.60";
+	widthString[67] = "2.64";
+	widthString[68] = "2.68";
+	widthString[69] = "2.72";
+	widthString[70] = "2.76";
+	widthString[71] = "2.80";
+	widthString[72] = "2.84";
+	widthString[73] = "2.88";
+	widthString[74] = "2.92";
+	widthString[75] = "2.96";
+	widthString[76] = "3.00";
+	widthString[77] = "3.04";
+	widthString[78] = "3.08";
+	widthString[79] = "3.12";
+	widthString[80] = "3.16";
+	widthString[81] = "3.20";
+	widthString[82] = "3.24";
+	widthString[83] = "3.28";
+	widthString[84] = "3.32";
+	widthString[85] = "3.36";
+	widthString[86] = "3.40";
+	widthString[87] = "3.44";
+	widthString[88] = "3.48";
+	widthString[89] = "3.52";
+	widthString[90] = "3.56";
+	widthString[91] = "3.60";
+	widthString[92] = "3.64";
+	widthString[93] = "3.68";
+	widthString[94] = "3.72";
+	widthString[95] = "3.76";
+	widthString[96] = "3.80";
+	widthString[97] = "3.84";
+	widthString[98] = "3.88";
+	widthString[99] = "3.92";
+	widthString[100] = "3.96";
+	widthString[101] = "4.00";
+	
+	//Frequency
+	frequency[1] = 0;
+	frequency[2] = 655;
+	frequency[3] = 1310;
+	frequency[4] = 1966;
+	frequency[5] = 2621;
+	frequency[6] = 3276;
+	frequency[7] = 3932;
+	frequency[8] = 4587;
+	frequency[9] = 5242;
+	frequency[10] = 5898;
+	frequency[11] = 6553;
+	frequency[12] = 7208;
+	frequency[13] = 7864;
+	frequency[14] = 8519;
+	frequency[15] = 9174;
+	frequency[16] = 9830;
+	frequency[17] = 10485;
+	frequency[18] = 11140;
+	frequency[19] = 11796;
+	frequency[20] = 12451;
+	frequency[21] = 13107;
+	frequency[22] = 13762;
+	frequency[23] = 14417;
+	frequency[24] = 15073;
+	frequency[25] = 15728;
+	frequency[26] = 16383;
+	frequency[27] = 17039;
+	frequency[28] = 17694;
+	frequency[29] = 18349;
+	frequency[30] = 19005;
+	frequency[31] = 19660;
+	frequency[32] = 20315;
+	frequency[33] = 20971;
+	frequency[34] = 21626;
+	frequency[35] = 22281;
+	frequency[36] = 22937;
+	frequency[37] = 23592;
+	frequency[38] = 24247;
+	frequency[39] = 24903;
+	frequency[40] = 25558;
+	frequency[41] = 26214;
+	frequency[42] = 26869;
+	frequency[43] = 27524;
+	frequency[44] = 28180;
+	frequency[45] = 28835;
+	frequency[46] = 29490;
+	frequency[47] = 30146;
+	frequency[48] = 30801;
+	frequency[49] = 31456;
+	frequency[50] = 32112;
+	frequency[51] = 32767;
+	frequency[52] = 33422;
+	frequency[53] = 34078;
+	frequency[54] = 34733;
+	frequency[55] = 35388;
+	frequency[56] = 36044;
+	frequency[57] = 36699;
+	frequency[58] = 37354;
+	frequency[59] = 38010;
+	frequency[60] = 38665;
+	frequency[61] = 39321;
+	frequency[62] = 39976;
+	frequency[63] = 40631;
+	frequency[64] = 41287;
+	frequency[65] = 41942;
+	frequency[66] = 42597;
+	frequency[67] = 43253;
+	frequency[68] = 43908;
+	frequency[69] = 44563;
+	frequency[70] = 45219;
+	frequency[71] = 45874;
+	frequency[72] = 46529;
+	frequency[73] = 47185;
+	frequency[74] = 47840;
+	frequency[75] = 48495;
+	frequency[76] = 49151;
+	frequency[77] = 49806;
+	frequency[78] = 50461;
+	frequency[79] = 51117;
+	frequency[80] = 51772;
+	frequency[81] = 52428;
+	frequency[82] = 53083;
+	frequency[83] = 53738;
+	frequency[84] = 54394;
+	frequency[85] = 55049;
+	frequency[86] = 55704;
+	frequency[87] = 56360;
+	frequency[88] = 57015;
+	frequency[89] = 57670;
+	frequency[90] = 58326;
+	frequency[91] = 58981;
+	frequency[92] = 59636;
+	frequency[93] = 60292;
+	frequency[94] = 60947;
+	frequency[95] = 61602;
+	frequency[96] = 62258;
+	frequency[97] = 62913;
+	frequency[98] = 63568;
+	frequency[99] = 64224;
+	frequency[100] = 64879;
+	frequency[101] = 65535;
+	
+	frequencyString[1] = "20.0 Hz";
+	frequencyString[2] = "21.4 Hz";
+	frequencyString[3] = "23.0 Hz";
+	frequencyString[4] = "24.6 Hz";
+	frequencyString[5] = "26.4 Hz";
+	frequencyString[6] = "28.2 Hz";
+	frequencyString[7] = "30.3 Hz";
+	frequencyString[8] = "32.4 Hz";
+	frequencyString[9] = "34.8 Hz";
+	frequencyString[10] = "37.2 Hz";
+	frequencyString[11] = "39.9 Hz";
+	frequencyString[12] = "42.8 Hz";
+	frequencyString[13] = "45.8 Hz";
+	frequencyString[14] = "49.1 Hz";
+	frequencyString[15] = "52.6 Hz";
+	frequencyString[16] = "56.4 Hz";
+	frequencyString[17] = "60.4 Hz";
+	frequencyString[18] = "64.7 Hz";
+	frequencyString[19] = "69.3 Hz";
+	frequencyString[20] = "74.3 Hz";
+	frequencyString[21] = "79.6 Hz";
+	frequencyString[22] = "85.3 Hz";
+	frequencyString[23] = "91.4 Hz";
+	frequencyString[24] = "97.9 Hz";
+	frequencyString[25] = "105 Hz";
+	frequencyString[26] = "112 Hz";
+	frequencyString[27] = "121 Hz";
+	frequencyString[28] = "129 Hz";
+	frequencyString[29] = "138 Hz";
+	frequencyString[30] = "148 Hz";
+	frequencyString[31] = "159 Hz";
+	frequencyString[32] = "170 Hz";
+	frequencyString[33] = "182 Hz";
+	frequencyString[34] = "195 Hz";
+	frequencyString[35] = "209 Hz";
+	frequencyString[36] = "224 Hz";
+	frequencyString[37] = "240 Hz";
+	frequencyString[38] = "258 Hz";
+	frequencyString[39] = "276 Hz";
+	frequencyString[40] = "296 Hz";
+	frequencyString[41] = "317 Hz";
+	frequencyString[42] = "340 Hz";
+	frequencyString[43] = "364 Hz";
+	frequencyString[44] = "390 Hz";
+	frequencyString[45] = "418 Hz";
+	frequencyString[46] = "448 Hz";
+	frequencyString[47] = "480 Hz";
+	frequencyString[48] = "514 Hz";
+	frequencyString[49] = "551 Hz";
+	frequencyString[50] = "590 Hz";
+	frequencyString[51] = "632 Hz";
+	frequencyString[52] = "678 Hz";
+	frequencyString[53] = "726 Hz";
+	frequencyString[54] = "778 Hz";
+	frequencyString[55] = "834 Hz";
+	frequencyString[56] = "893 Hz";
+	frequencyString[57] = "957 Hz";
+	frequencyString[58] = "1.03 kHz";
+	frequencyString[59] = "1.10 kHz";
+	frequencyString[60] = "1.18 kHz";
+	frequencyString[61] = "1.26 kHz";
+	frequencyString[62] = "1.35 kHz";
+	frequencyString[63] = "1.45 kHz";
+	frequencyString[64] = "1.55 kHz";
+	frequencyString[65] = "1.66 kHz";
+	frequencyString[66] = "1.78 kHz";
+	frequencyString[67] = "1.91 kHz";
+	frequencyString[68] = "2.05 kHz";
+	frequencyString[69] = "2.19 kHz";
+	frequencyString[70] = "2.35 kHz";
+	frequencyString[71] = "2.52 kHz";
+	frequencyString[72] = "2.70 kHz";
+	frequencyString[73] = "2.89 kHz";
+	frequencyString[74] = "3.10 kHz";
+	frequencyString[75] = "3.32 kHz";
+	frequencyString[76] = "3.56 kHz";
+	frequencyString[77] = "3.81 kHz";
+	frequencyString[78] = "4.08 kHz";
+	frequencyString[79] = "4.38 kHz";
+	frequencyString[80] = "4.69 kHz";
+	frequencyString[81] = "5.02 kHz";
+	frequencyString[82] = "5.38 kHz";
+	frequencyString[83] = "5.77 kHz";
+	frequencyString[84] = "6.18 kHz";
+	frequencyString[85] = "6.62 kHz";
+	frequencyString[86] = "7.09 kHz";
+	frequencyString[87] = "7.60 kHz";
+	frequencyString[88] = "8.15 kHz";
+	frequencyString[89] = "8.73 kHz";
+	frequencyString[90] = "9.35 kHz";
+	frequencyString[91] = "10.0 kHz";
+	frequencyString[92] = "10.7 kHz";
+	frequencyString[93] = "11.5 kHz";
+	frequencyString[94] = "12.3 kHz";
+	frequencyString[95] = "13.2 kHz";
+	frequencyString[96] = "14.2 kHz";
+	frequencyString[97] = "15.2 kHz";
+	frequencyString[98] = "16.4 kHz";
+	frequencyString[99] = "17.4 kHz";
+	frequencyString[100] = "18.7 kHz";
+	frequencyString[101] = "20.0 kHz";
+}
+
+
