@@ -28,13 +28,17 @@ Comments: Forwards Metrics Events
   DIGITAL_INPUT, ANALOG_INPUT, STRING_INPUT, BUFFER_INPUT inputs and DIGITAL_OUTPUT, 
   ANALOG_OUTPUT, STRING_OUTPUT and SERIAL_OUTPUT outputs
 *******************************************************************************************/
-DIGITAL_INPUT Startup_press,Confirm_System_Off,Program_Volume_Down,Program_Volume_Up,Select_AV_Jack,Select_Blank,Select_BluRay,Select_Device_Control_Bluray,Select_Device_Control_IPTV,Select_HDMI_Cable,Select_HDMI_Jack,Select_IPTV,Select_Local_Input,Select_PA_Control,Select_Remote_Input1,Select_Remote_Input2,Select_VGA_Cable,Help_Menu_Press,Home_button,Program_Volume_Slider_Press,Audio_Only_Press;
+DIGITAL_INPUT Audio_Only_Press,Confirm_System_Off,Help_Menu_Press,Home_button,Program_Volume_Down,Program_Volume_Slider_Press,Program_Volume_Up;
+DIGITAL_INPUT Select_AV_Jack,Select_Blank,Select_BluRay,Select_Device_Control_Bluray,Select_Device_Control_IPTV,Select_HDMI_Cable,Select_HDMI_Jack;
+DIGITAL_INPUT Select_IPTV,Select_Local_Input,Select_PA_Control,Select_Remote_Input1,Select_Remote_Input2,Select_VGA_Cable,Startup_press;
 
 DIGITAL_INPUT _skip_,_skip_,_skip_,_skip_,_skip_;
  
 DIGITAL_INPUT clientConnected,systemReady;   
 
-STRING_INPUT dmpsHostName[32],dmpsIp[15],dmpsMACAddr[18],devBuilding[8],devRoom[16],devFloor[2],devLatitude[11],devLongitude[11],volumeLevel[4];
+STRING_INPUT controllerHostName[32],controllerIp[15],controllerMACAddr[18],devBuilding[8],devRoom[16],devFloor[2],devLatitude[11],devLongitude[11];
+
+ANALOG_INPUT volumeLevel;
                                
 BUFFER_INPUT clientBuffer[100];
 
@@ -441,36 +445,38 @@ Release Audio_Only_Press // Audio Only button on init screen
 
 // !!!!!!!! SYSTEM SETUP EVENTS -- NO EDITING
 // If system gets hostname, set it in the global var
-CHANGE dmpsHostName
+CHANGE controllerHostName
 {
 	STRING trash[16];
-	if(FIND(" ",dmpsHostName) <= 1)
+	if(FIND(" ",controllerHostName) <= 1)
 	{
-		trash = REMOVE(" ",dmpsHostName); // remove preceding space if there
+		trash = REMOVE(" ",controllerHostName); // remove preceding space if there
 	}
-	HOSTNAME = dmpsHostName;
+	HOSTNAME = controllerHostName;
 }
 
 // If system gets IP, set it in the global var
-CHANGE dmpsIp
+CHANGE controllerIp
 {
-	STRING trash[16];
-	trash = REMOVE(" ",dmpsIp);
-	HOSTIP = dmpsIp;
+	STRING trash[16],temp[16],final[16];
+	trash = REMOVE(" ",controllerIp); //Beginning Slash
+	temp = controllerIp;
+	final = REMOVE(" ",temp); //Trailing Slash
+	HOSTIP = final;
 }
 
 // If system gets IP, set it in the global var
-CHANGE dmpsMACAddr
+CHANGE controllerMACAddr
 {
 	STRING trash[32],temp[32];
-	if (FIND(" ",dmpsMACAddr) > 0)
+	if (FIND(" ",controllerMACAddr) > 0)
 	{
-		temp = LEFT(dmpsMACAddr, LEN(dmpsMACAddr) - 1);
+		temp = LEFT(controllerMACAddr, LEN(controllerMACAddr) - 1);
 		HOSTMAC = temp;
 	}
 	else
 	{
-		HOSTMAC = dmpsMACAddr;
+		HOSTMAC = controllerMACAddr;
 	}
 }
 
@@ -662,7 +668,8 @@ Function Main()
     //   runs and propagates the values to them.
     WaitForInitializationComplete();
 
-	REPORTINGHOST = "avreports.byu.edu";
+	//REPORTINGHOST = "avreports.byu.edu"; //TMPC Can't do DNS Lookup
+	REPORTINGHOST = "10.5.34.215";
 	REPORTINGHOSTPORT = 9200;
 	RECONNECTTIME = 9000; // Set reconnect timer for 90 seconds.
 	HOSTNAME = "";
