@@ -32,9 +32,11 @@ DIGITAL_INPUT Startup_press,Confirm_System_Off,Program_Volume_Down,Program_Volum
 
 DIGITAL_INPUT _skip_,_skip_,_skip_,_skip_,_skip_;
  
-DIGITAL_INPUT clientConnected,systemReady;   
+DIGITAL_INPUT clientConnected,systemReady;
 
-STRING_INPUT dmpsHostName[32],dmpsIp[15],dmpsMACAddr[18],devBuilding[8],devRoom[16],devFloor[2],devLatitude[11],devLongitude[11],volumeLevel[4],sessionId[256],InputLabel1[30],InputLabel2[30],InputLabel3[30],InputLabel4[30],InputLabel5[30],InputLabel6[30],InputLabel7[30];
+ANALOG_INPUT volumeVal;
+
+STRING_INPUT cpHostName[32],cpIp[15],cpMACAddr[18],devBuilding[8],devRoom[16],devFloor[2],devLatitude[11],devLongitude[11],volumeLevel[4],sessionId[256],InputLabel1[30],InputLabel2[30],InputLabel3[30],InputLabel4[30],InputLabel5[30],InputLabel6[30],InputLabel7[30];
                                
 BUFFER_INPUT clientBuffer[100];
 
@@ -495,36 +497,42 @@ Release Audio_Only_Press // Audio Only button on init screen
 
 // !!!!!!!! SYSTEM SETUP EVENTS -- NO EDITING
 // If system gets hostname, set it in the global var
-CHANGE dmpsHostName
+
+CHANGE volumeVal
+{
+	// Add event to push when volume is constant for a period
+}
+
+CHANGE cpHostName
 {
 //	STRING trash[16];
-//	if(FIND(" ",dmpsHostName) <= 1)
+//	if(FIND(" ",cpHostName) <= 1)
 //	{
-//		trash = REMOVE(" ",dmpsHostName); // remove preceding space if there
+//		trash = REMOVE(" ",cpHostName); // remove preceding space if there
 //	}
-	HOSTNAME = dmpsHostName;
+	HOSTNAME = cpHostName;
 }
 
 // If system gets IP, set it in the global var
-CHANGE dmpsIp
+CHANGE cpIp
 {
 	STRING trash[16];
-	trash = REMOVE(" ",dmpsIp);
-	HOSTIP = dmpsIp;
+	trash = REMOVE(" ",cpIp);
+	HOSTIP = cpIp;
 }
 
 // If system gets IP, set it in the global var
-CHANGE dmpsMACAddr
+CHANGE cpMACAddr
 {
 	STRING trash[32],temp[32];
-	if (FIND(" ",dmpsMACAddr) > 0)
+	if (FIND(" ",cpMACAddr) > 0)
 	{
-		temp = LEFT(dmpsMACAddr, LEN(dmpsMACAddr) - 1);
+		temp = LEFT(cpMACAddr, LEN(cpMACAddr) - 1);
 		HOSTMAC = temp;
 	}
 	else
 	{
-		HOSTMAC = dmpsMACAddr;
+		HOSTMAC = cpMACAddr;
 	}
 }
 // Generate/store SessionID
