@@ -1,9 +1,9 @@
 //Module Info
 /*
-	Name: Bradley T Streeter / David Allred
+	Name: Bradley T Streeter / David Allred / Dan Clegg
 	Company: Brigham Young University
 	
-	TPCS-4SMD Version
+	RMC3 Version
 	
 */
 
@@ -17,7 +17,7 @@
 
 Digital_Input Add_Slave,Remove_Slave,Reset_Program,Test,Get_Program_Info; 
 Buffer_Input IP_Address$[15],From_Console$[3000];
-String_Output _skip_,_skip_,_skip_,_skip_,Program_Name$,Compile_Date$,To_Console$, IPTable$, CPver$, CPHostname$, CPIP$, CPMAC$;
+String_Output _skip_,_skip_,_skip_,_skip_,Program_Name$,Compile_Date$,To_Console$, IPTable$, CPver$;//, CPHostname$, CPIP$, CPMAC$;
 
 //Global variables
 
@@ -59,10 +59,10 @@ Push Test
 Push Get_Program_Info
 	{
 	To_Console$ = "ProgComments\x0D";	//Request Running Program Info
-	To_Console$ = "ver\x0D";	//request TPCS-4SMD Firmware version
+	To_Console$ = "ver\x0D";	//request firmware version
 	To_Console$ = "host\x0D";	//request hostname
-	To_Console$ = "ipaddress\x0D"; // request JUST the ip address
-	To_Console$ = "estatus\x0D"; // request ethernet information, including MAC address
+	//To_Console$ = "ipaddress\x0D"; // request JUST the ip address
+	//To_Console$ = "estatus\x0D"; // request ethernet information, including MAC address
 	}
 
 Change From_Console$
@@ -70,18 +70,18 @@ Change From_Console$
 	Integer StartPosition;
 	String in$[3000], TempString[100], Trash[250];
 	
-	in$ = Gather("TPCS-4SMD>", From_Console$);
+	in$ = Gather("RMC3>", From_Console$);
 //	Print("in$ = %s",in$);
 //	Print("Length of in$ = %d\n", Len(in$));
 	if (Find("IP Table:",in$)&& (len(in$)<150))
 		{
 		//Print("Found IPTable ID:7");
-		IPTable$ = Left(in$,(Find("TPCS-4SMD>",in$) - 5));
+		IPTable$ = Left(in$,(Find("RMC3>",in$) - 5));
 		in$ = "";
 		}
-		else if (find("TPCS-4SMD Cntrl Eng", in$))
+		else if (find("RMC3 Cntrl Eng", in$))
 		{
-		CPver$ = Left(in$, (find("TPCS-4SMD>",in$) - 5));
+		CPver$ = Left(in$, (find("RMC3>",in$) - 5));
 		in$ = "";
 		}
 	
@@ -90,16 +90,16 @@ Change From_Console$
 		TempString = Remove("\x0A",In$);
 		if (Find("Program File:",TempString))
 			{
-			Trash = Remove("Program File: ",TempString);
+			Trash = Remove("Program File:",TempString);
 			Program_Name$ = Left(TempString,Find("\x0A",Tempstring) - 2);
 			}
 			
 		else if (Find("Compiled On:",TempString))
 			{
-			Trash = Remove("Compiled On:  ",TempString);
+			Trash = Remove("Compiled On:",TempString);
 			Compile_Date$ = Left(TempString,Find("\x0A",Tempstring) - 2);
 			}
-		else if (Find("Host Name:",TempString))
+		/*else if (Find("Host Name:",TempString))
 			{
 			Trash = Remove("Host Name: ",TempString);
 			CPHostname$ = Left(TempString,Find("\x0D",Tempstring) - 1);
@@ -114,7 +114,7 @@ Change From_Console$
 			{
 			Trash = Remove("MAC Address(es): ",TempString);
 			CPMAC$ = Left(TempString,Find("\x0D",Tempstring) - 1);			
-			}
+			}*/
 
 		}
 	}
