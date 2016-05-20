@@ -417,6 +417,8 @@ public override object FunctionMain (  object __obj__ )
 
 public override void LogosSplusInitialize()
 {
+    SocketInfo __socketinfo__ = new SocketInfo( 1, this );
+    InitialParametersClass.ResolveHostName = __socketinfo__.ResolveHostName;
     _SplusNVRAM = new SplusNVRAM( this );
     _SplusNVRAM.RETURNSTRING  = new CrestronString( Crestron.Logos.SplusObjects.CrestronStringEncoding.eEncodingASCII, 4, this );
     _SplusNVRAM.TEMPSTRING  = new CrestronString( Crestron.Logos.SplusObjects.CrestronStringEncoding.eEncodingASCII, 40, this );
