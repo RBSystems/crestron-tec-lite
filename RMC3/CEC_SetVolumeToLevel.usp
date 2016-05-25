@@ -1,0 +1,126 @@
+/*******************************************************************************************
+  SIMPL+ Module Information
+  (Fill in comments below)
+*******************************************************************************************/
+/*
+Dealer Name: Brigham Young University
+System Name: CEC Set Volume To Level
+System Number: 0.0.1
+Programmer: Dan Clegg
+Comments: Steps volume to exact level requested
+*/
+
+/*******************************************************************************************
+  Compiler Directives
+  (Uncomment and declare compiler directives as needed)
+*******************************************************************************************/
+#SYMBOL_NAME "CEC Set Volume to Level"
+#CATEGORY "46" "Custom CEC"
+
+#ENABLE_STACK_CHECKING
+#DEFAULT_VOLATILE
+// #DEFINE_CONSTANT
+
+/*******************************************************************************************
+  DIGITAL, ANALOG and SERIAL INPUTS and OUTPUTS
+  (Uncomment and declare inputs and outputs as needed)
+*******************************************************************************************/
+ANALOG_INPUT VolumeToSet;
+STRING_OUTPUT VolumeUp,VolumeDown;
+       
+/*******************************************************************************************
+	GLOBAL VARIABLES
+*******************************************************************************************/
+INTEGER CurrentVolume,DesiredVolume;
+
+/*******************************************************************************************
+  Functions
+  (Add any additional functions here)
+  Note:  Functions must be physically placed before the location in
+         the code that calls them.
+*******************************************************************************************/
+
+Function StepToLevel(INTEGER level)
+{
+ 	/*level_str := c.Params.ByName("level")
+	level_atoi, _ := strconv.Atoi(level_str)
+	wanted_level := int(level_atoi)
+
+	log.Println("Wanted_level is " + strconv.Itoa(wanted_level) + " and volume_level is " + strconv.Itoa(volume_level))
+
+	addr := c.MustGet("CECAddress").(int)
+
+	if wanted_level > options.Audio.MaxVolume {
+		c.AbortWithError(400, errors.New("The maximum volume level is "+strconv.Itoa(options.Audio.MaxVolume)))
+	} else if wanted_level > volume_level { // Requested level is greater then current volume level
+		log.Println("FIRST")
+		var final_level = wanted_level - volume_level
+		log.Println("Final_level is " + strconv.Itoa(final_level))
+		for i := 0; i < final_level; i++ {
+			if resp := cec.Key(addr, "VolumeUp"); resp != nil {
+				c.AbortWithError(500, resp)
+				break
+			}
+		}
+	} else if wanted_level < volume_level { // Requested level is less than current volume level
+		log.Println("SECOND")
+		var final_level = volume_level - wanted_level
+		log.Println("Final_level is " + strconv.Itoa(final_level))
+		for i := 0; i < final_level; i++ {
+			if resp := cec.Key(addr, "VolumeDown"); resp != nil {
+				c.AbortWithError(500, resp)
+				break
+			}
+		}
+	}
+
+	volume_level = wanted_level
+
+	c.String(200, strconv.Itoa(volume_level))*/
+}
+
+/*******************************************************************************************
+  Event Handlers
+  (Uncomment and declare additional event handlers as needed)
+*******************************************************************************************/
+/*
+PUSH input
+{
+    // TODO:  Add code here
+}
+*/
+
+/*
+RELEASE input
+{
+    // TODO:  Add code here
+}
+*/
+
+/*
+CHANGE input
+{
+    // TODO:  Add code here
+}
+*/
+
+
+/*******************************************************************************************
+  Main()
+  Uncomment and place one-time startup code here
+  (This code will get called when the system starts up)
+*******************************************************************************************/
+/*
+Function Main()
+{
+    // TODO:  Add code here
+    // Initialize declared global and local variables/arrays as needed.
+
+    // WaitForInitializationComplete();
+    // If you are reading any Input or Output variables, uncomment
+    //   the WaitForInitializationComplete statement above and read
+    //   them afterwards.  Input/Output variables will not have
+    //   their correct values set until after the logic processor
+    //   runs and propagates the values to them.
+}
+*/
